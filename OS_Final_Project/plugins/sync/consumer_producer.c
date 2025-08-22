@@ -3,8 +3,8 @@
 #include "consumer_producer.h"
 
 const char* consumer_producer_init(consumer_producer_t* queue, int capacity) {
-    if (!queue || capacity < 0) {
-        return "Invalid parameters (queue)";
+    if (!queue || capacity <= 0) {
+        return "Invalid parameters: queue cannot be NULL and capacity must be positive";
     }
 
     queue->items = calloc(capacity, sizeof(char*));
@@ -19,11 +19,14 @@ const char* consumer_producer_init(consumer_producer_t* queue, int capacity) {
     queue->finished = 0;
 
     if (pthread_mutex_init(&queue->lock, NULL) != 0) {
+        free(queue->items);
         return "Mutex init failed";
     }
     if (monitor_init(&queue->not_full_monitor) != 0 ||
         monitor_init(&queue->not_empty_monitor) != 0 ||
         monitor_init(&queue->finished_monitor) != 0) {
+        pthread_mutex_destroy(&queue->lock);
+        free(queue->items);
         return "Monitor init failed";
     }
     return NULL;
@@ -62,7 +65,7 @@ const char* consumer_producer_put(consumer_producer_t* queue, const char* item) 
 
     if (queue->finished) {
         pthread_mutex_unlock(&queue->lock);
-        return "Tried to put new item to a finished quee";
+        return "Tried to put new item to a finished queue";
     }
 
     char* item_copy = strdup(item);
