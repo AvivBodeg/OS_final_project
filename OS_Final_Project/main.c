@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <unistd.h>
 #include "plugins/plugin_sdk.h"
 
 // typedefs for plugin interface
@@ -151,32 +152,30 @@ void cleanup_plugins(plugin_handle_t* plugins, int num_plugins) {
     }
 }
 
-int process_input(plugin_handle_t* plugins, int num_plugins) {
+int process_input(plugin_handle_t* plugins) {
     char buffer[1025];
     
-    while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        // remove trailing newline
-        int len = strlen(buffer);
-        if (len > 0 && buffer[len - 1] == '\n') {
-            buffer[len - 1] = '\0';
+    while (1) {
+        if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+            // remove trailing newline
+            int len = strlen(buffer);
+            if (len > 0 && buffer[len - 1] == '\n') {
+                buffer[len - 1] = '\0';
+            }
+            
+            // send string to first plugin
+            const char* error = plugins[0].place_work(buffer);
+            if (error != NULL) {
+                fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error);
+                return 1;
+            }
+            
+            if (strcmp(buffer, "<END>") == 0) {
+                break;
+            }
+        } else {
+            // EOF encountered - busy wait forever
         }
-        
-        // send string to first plugin
-        const char* error = plugins[0].place_work(buffer);
-        if (error != NULL) {
-            fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error);
-            return 1;
-        }
-        
-        // end signal handling
-        if (strcmp(buffer, "<END>") == 0) {
-            break;
-        }
-    }
-    
-    // EOF handling
-    if (feof(stdin)) {
-        return 2;
     }
     
     return 0;
@@ -229,16 +228,9 @@ int main(int argc, char* argv[]) {
     }
     
     // Step 5: Read Input from STDIN
-    int input_result = process_input(plugins, num_plugins);
-    if (input_result == 1) {
+    if (process_input(plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
-        return 1;
-    } else if (input_result == 2) {
-        // EOF - force shutdown without waiting for <END>
-        cleanup_plugins(plugins, num_plugins);
-        free(plugins);
-        printf("Pipeline shutdown complete due to EOF\n");
         return 1;
     }
     
