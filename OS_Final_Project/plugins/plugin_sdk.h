@@ -19,8 +19,7 @@ const char* plugin_init(int queue_size);
 const char* plugin_fini(void);
 /**
  * Place work (a string) into the plugin's queue
- * @param str The string to process (plugin takes ownership if it allocates
-new memory)
+ * @param str The string to process (plugin takes ownership if it allocatesnew memory)
  * @return NULL on success, error message on failure
  */
 const char* plugin_place_work(const char* str);
@@ -31,8 +30,7 @@ function
  */
 void plugin_attach(const char* (*next_place_work)(const char*));
 /**
- * Wait until the plugin has finished processing all work and is ready to
-shutdown
+ * Wait until the plugin has finished processing all work and is ready toshutdown
  * This is a blocking function used for graceful shutdown coordination
  * @return NULL on success, error message on failure
  */
