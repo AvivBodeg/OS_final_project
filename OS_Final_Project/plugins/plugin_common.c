@@ -20,6 +20,7 @@ void* plugin_consumer_thread(void* arg) {
             break;
         }
 
+        // in case of "<END>"
         // forward shutdown to next plugin
         if (strcmp(work_item, "<END>") == 0) {
             if (context->next_place_work) {
@@ -29,7 +30,7 @@ void* plugin_consumer_thread(void* arg) {
             break;
         }
 
-        // process and send to next plugin
+        // process work and send to next plugin
         const char* processed_result = context->process_function(work_item);
         if (processed_result) {
             if (context->next_place_work) {

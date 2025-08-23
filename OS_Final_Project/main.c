@@ -135,6 +135,13 @@ int initialize_plugins(plugin_handle_t* plugins, int num_plugins, int queue_size
     return 0;
 }
 
+int attach_plugins(plugin_handle_t* plugins, int num_plugins) {
+    for (int i = 0; i < num_plugins - 1; i++) {
+        plugins[i].attach(plugins[i+1].place_work);
+    }
+    return 0;
+}
+
 void cleanup_plugins(plugin_handle_t* plugins, int num_plugins) {
     for (int i = 0; i < num_plugins; i++) {
         if (plugins[i].handle) {
@@ -142,6 +149,49 @@ void cleanup_plugins(plugin_handle_t* plugins, int num_plugins) {
             dlclose(plugins[i].handle);
         }
     }
+}
+
+int process_input(plugin_handle_t* plugins, int num_plugins) {
+    char buffer[1025];
+    
+    while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+        // remove trailing newline
+        int len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+        
+        // send string to first plugin
+        const char* error = plugins[0].place_work(buffer);
+        if (error != NULL) {
+            fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error);
+            return 1;
+        }
+        
+        // end signal handling
+        if (strcmp(buffer, "<END>") == 0) {
+            break;
+        }
+    }
+    
+    // EOF handling
+    if (feof(stdin)) {
+        return 2;
+    }
+    
+    return 0;
+}
+
+int wait_for_plugins(plugin_handle_t* plugins, int num_plugins) {
+    for (int i = 0; i < num_plugins; i++) {
+        const char* error = plugins[i].wait_finished();
+        if (error != NULL) {
+            fprintf(stderr, "Error: Plugin '%s' failed to finish gracefully: %s\n", plugins[i].name, error);
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -171,7 +221,33 @@ int main(int argc, char* argv[]) {
         return 2;
     }
     
-    // TODO: Implement remaining steps 4-6
+    // Step 4: Attach Plugins Together
+    if (attach_plugins(plugins, num_plugins) != 0) {
+        cleanup_plugins(plugins, num_plugins);
+        free(plugins);
+        return 2;
+    }
+    
+    // Step 5: Read Input from STDIN
+    int input_result = process_input(plugins, num_plugins);
+    if (input_result == 1) {
+        cleanup_plugins(plugins, num_plugins);
+        free(plugins);
+        return 1;
+    } else if (input_result == 2) {
+        // EOF - force shutdown without waiting for <END>
+        cleanup_plugins(plugins, num_plugins);
+        free(plugins);
+        printf("Pipeline shutdown complete due to EOF\n");
+        return 1;
+    }
+    
+    // Step 6: Wait for Plugins to Finish
+    if (wait_for_plugins(plugins, num_plugins) != 0) {
+        cleanup_plugins(plugins, num_plugins);
+        free(plugins);
+        return 1;
+    }
     
     // Step 7: Cleanup
     cleanup_plugins(plugins, num_plugins);
