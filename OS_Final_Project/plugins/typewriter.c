@@ -18,7 +18,15 @@ const char* plugin_transform(const char* input) {
         return NULL;
     }
     
-    printf("[%s] ", PLUGIN_NAME);
+    // print prefix with delay
+    char prefix[] = "[typewriter] ";
+    for (int i = 0; prefix[i] != '\0'; i++) {
+        printf("%c", prefix[i]);
+        fflush(stdout);
+        usleep(DELAY);
+    }
+    
+    //print input with delay
     for (int i = 0; i < len; i++) {
         printf("%c", input[i]);
         fflush(stdout);
