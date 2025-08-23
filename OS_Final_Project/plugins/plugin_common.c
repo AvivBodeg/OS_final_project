@@ -31,11 +31,15 @@ void* plugin_consumer_thread(void* arg) {
 
         // process and send to next plugin
         const char* processed_result = context->process_function(work_item);
-        if (context->next_place_work && processed_result) {
-            const char* forward_result = context->next_place_work(processed_result);
-            if (forward_result) {
-                log_error(context, "Failed to forward work to next plugin");
+        if (processed_result) {
+            if (context->next_place_work) {
+                const char* forward_result = context->next_place_work(processed_result);
+                if (forward_result) {
+                    log_error(context, "Failed to forward work to next plugin");
+                }
             }
+        } else {
+            log_error(context, "Plugin transformation returned NULL");
         }
         free(work_item);
     }
