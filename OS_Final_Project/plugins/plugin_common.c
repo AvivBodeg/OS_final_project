@@ -1,3 +1,5 @@
+#define END "<END>"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +7,7 @@
 #include "plugin_common.h"
 
 static plugin_context_t plugin_context = {0}; // all integers are 0 and all pointers are NULL
-static pthread_mutex_t* shared_output_mutex = NULL; // Pointer to shared mutex from main
+static pthread_mutex_t* shared_output_mutex = NULL; // shared mutex for output
 
 void* plugin_consumer_thread(void* arg) {
     plugin_context_t* context = (plugin_context_t*)arg;
@@ -21,11 +23,10 @@ void* plugin_consumer_thread(void* arg) {
             break;
         }
 
-        // in case of "<END>":
-        // forward shutdown to next plugin
-        if (strcmp(work_item, "<END>") == 0) {
+        // in case of "<END>": forward shutdown to next plugin withgout modifying
+        if (strcmp(work_item, END) == 0) {
             if (context->next_place_work) {
-                context->next_place_work("<END>");
+                context->next_place_work(END);
             }
             free(work_item);
             break;
@@ -48,7 +49,7 @@ void* plugin_consumer_thread(void* arg) {
     }
     
     context->finished = 1;
-    consumer_producer_signal_finished(context->queue);
+    consumer_producer_signal_finished(context->queue); 
     return NULL;
 }
 
@@ -58,11 +59,13 @@ void log_error(plugin_context_t* context, const char* message) {
     }
 }
 
+/***commented out for submission - left for future debugging (not like anyone will actually do that but...)
 void log_info(plugin_context_t* context, const char* message) {
     if (context && context->name && message) {
         printf("[INFO][%s] - %s\n", context->name, message);
     }
 }
+*/
 
 __attribute__((visibility("default")))
 void set_shared_output_mutex(pthread_mutex_t* mutex) {

@@ -29,11 +29,11 @@ const char* plugin_transform(const char* input) {
         return NULL;
     }
     
-    int result_index = 0;
+    int j = 0;
     for (int i = 0; i < input_len; i++) {
-        result[result_index++] = input[i];
+        result[j++] = input[i];
         if (i < input_len - 1) {
-            result[result_index++] = ' ';
+            result[j++] = ' ';
         }
     }
     

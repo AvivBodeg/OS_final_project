@@ -35,12 +35,13 @@ void* plugin_consumer_thread(void* arg);
  */
 void log_error(plugin_context_t* context, const char* message);
 
-/**
+// commented out for submission, left for a future debugger, who will likely never come :(
+/*
  * Print info message in the format [INFO][Plugin Name] - message
  * @param context Plugin context
  * @param message Info message
  */
-void log_info(plugin_context_t* context, const char* message);
+// void log_info(plugin_context_t* context, const char* message);
 
 /**
  * Get the plugin's name
@@ -48,22 +49,6 @@ void log_info(plugin_context_t* context, const char* message);
  */
 __attribute__((visibility("default")))
 const char* plugin_get_name(void);
-
-/**
- * sets the shared output mutex for synchronization across plugins
- * @param mutex pointer to shared mutex
- */
-void set_shared_output_mutex(pthread_mutex_t* mutex);
-
-/**
- * locks the shared output mutex
- */
-void lock_output(void);
-
-/**
- * unlocks the shared output mutex
- */
-void unlock_output(void);
 
 /**
  * Initialize the common plugin infrastructure with the specified queue size
@@ -112,5 +97,21 @@ void plugin_attach(const char* (*next_place_work)(const char*));
  */
 __attribute__((visibility("default")))
 const char* plugin_wait_finished(void);
+
+/**
+ * sets the shared output mutex for synchronization across plugins
+ * @param mutex pointer to shared mutex
+ */
+void set_shared_output_mutex(pthread_mutex_t* mutex);
+
+/**
+ * locks the shared output mutex
+ */
+void lock_output(void);
+
+/**
+ * unlocks the shared output mutex
+ */
+void unlock_output(void);
 
 #endif
