@@ -5,6 +5,7 @@
 #include "plugin_common.h"
 
 static plugin_context_t plugin_context = {0}; // all integers are 0 and all pointers are NULL
+static pthread_mutex_t* shared_output_mutex = NULL; // Pointer to shared mutex from main
 
 void* plugin_consumer_thread(void* arg) {
     plugin_context_t* context = (plugin_context_t*)arg;
@@ -20,7 +21,7 @@ void* plugin_consumer_thread(void* arg) {
             break;
         }
 
-        // in case of "<END>"
+        // in case of "<END>":
         // forward shutdown to next plugin
         if (strcmp(work_item, "<END>") == 0) {
             if (context->next_place_work) {
@@ -39,6 +40,7 @@ void* plugin_consumer_thread(void* arg) {
                     log_error(context, "Failed to forward work to next plugin");
                 }
             }
+            free((void*)processed_result);
         } else {
             log_error(context, "Plugin transformation returned NULL");
         }
@@ -59,6 +61,23 @@ void log_error(plugin_context_t* context, const char* message) {
 void log_info(plugin_context_t* context, const char* message) {
     if (context && context->name && message) {
         printf("[INFO][%s] - %s\n", context->name, message);
+    }
+}
+
+__attribute__((visibility("default")))
+void set_shared_output_mutex(pthread_mutex_t* mutex) {
+    shared_output_mutex = mutex;
+}
+
+void lock_output(void) {
+    if (shared_output_mutex != NULL) {
+        pthread_mutex_lock(shared_output_mutex);
+    }
+}
+
+void unlock_output(void) {
+    if (shared_output_mutex != NULL) {
+        pthread_mutex_unlock(shared_output_mutex);
     }
 }
 

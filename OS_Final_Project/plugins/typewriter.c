@@ -18,6 +18,7 @@ const char* plugin_transform(const char* input) {
         return NULL;
     }
     
+    lock_output();
     // print prefix with delay
     char prefix[] = "[typewriter] ";
     for (int i = 0; prefix[i] != '\0'; i++) {
@@ -33,6 +34,7 @@ const char* plugin_transform(const char* input) {
         usleep(DELAY);
     }
     printf("\n");
+    unlock_output();
     
     strcpy(result, input);
     return result;

@@ -16,7 +16,9 @@ const char* plugin_transform(const char* input) {
         return NULL;
     }
     
+    lock_output();
     printf("[%s] %s\n", PLUGIN_NAME, input);
+    unlock_output();
     
     strcpy(result, input);
     return result;

@@ -3,7 +3,11 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "plugins/plugin_sdk.h"
+
+// global output synchronization
+static pthread_mutex_t output_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // typedefs for plugin interface
 typedef const char* (*plugin_get_name_func_t)(void);
@@ -12,6 +16,7 @@ typedef const char* (*plugin_fini_func_t)(void);
 typedef const char* (*plugin_place_work_func_t)(const char* str);
 typedef void (*plugin_attach_func_t)(const char* (*next_place_work)(const char*));
 typedef const char* (*plugin_wait_finished_func_t)(void);
+typedef void (*set_shared_output_mutex_func_t)(pthread_mutex_t* mutex);
 
 typedef struct {
     plugin_get_name_func_t get_name;
@@ -56,6 +61,7 @@ int validate_args(int argc, char* argv[], int* queue_size) {
     *queue_size = atoi(argv[1]);
     if (*queue_size <= 0) {
         fprintf(stderr, "Error: queue_size must be a positive integer.\n");
+        print_usage();
         return 1;
     }
     
@@ -92,6 +98,7 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
         plugin_place_work_func_t place_work = (plugin_place_work_func_t)dlsym(handle, "plugin_place_work");
         plugin_attach_func_t attach = (plugin_attach_func_t)dlsym(handle, "plugin_attach");
         plugin_wait_finished_func_t wait_finished = (plugin_wait_finished_func_t)dlsym(handle, "plugin_wait_finished");
+        set_shared_output_mutex_func_t set_mutex = (set_shared_output_mutex_func_t)dlsym(handle, "set_shared_output_mutex");
         
         // handle dlsym (exporting) errors
         char* error = dlerror();
@@ -104,6 +111,11 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
                 dlclose(plugins[j].handle);
             }
             return 1;
+        }
+        
+        // set shared output mutex (if supported)
+        if (set_mutex) {
+            set_mutex(&output_mutex);
         }
         
         // store plugin information
@@ -163,7 +175,7 @@ int process_input(plugin_handle_t* plugins) {
                 buffer[len - 1] = '\0';
             }
             
-            // send string to first plugin
+            // sends string to first plugin
             const char* error = plugins[0].place_work(buffer);
             if (error != NULL) {
                 fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error);
@@ -174,7 +186,7 @@ int process_input(plugin_handle_t* plugins) {
                 break;
             }
         } else {
-            // EOF encountered - busy wait forever
+            // EOF - busy wait forever
         }
     }
     
@@ -194,7 +206,7 @@ int wait_for_plugins(plugin_handle_t* plugins, int num_plugins) {
 }
 
 int main(int argc, char* argv[]) {
-    // Step 1: Parse and validate command-line arguments
+    // parse and validate args
     int queue_size;
     if (validate_args(argc, argv, &queue_size) != 0) {
         return 1;
@@ -207,45 +219,43 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Step 2: Load Plugin Shared Objects
+    // load plugin shared objects
     if (load_plugins(argv, plugins, num_plugins) != 0) {
         free(plugins);
         return 1;
     }
     
-    // Step 3: Initialize Plugins
+    // initialize plugins
     if (initialize_plugins(plugins, num_plugins, queue_size) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 2;
     }
     
-    // Step 4: Attach Plugins Together
+    // attach plugins together
     if (attach_plugins(plugins, num_plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 2;
     }
     
-    // Step 5: Read Input from STDIN
+    // read Input from STDIN
     if (process_input(plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 1;
     }
-    
-    // Step 6: Wait for Plugins to Finish
+
+    // wait for plugins to finish
     if (wait_for_plugins(plugins, num_plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 1;
     }
     
-    // Step 7: Cleanup
+    // cleanup
     cleanup_plugins(plugins, num_plugins);
     free(plugins);
-
-    // Step 8: Finalize
     printf("Pipeline shutdown complete\n");
     return 0;
 }

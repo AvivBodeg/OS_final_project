@@ -50,6 +50,22 @@ __attribute__((visibility("default")))
 const char* plugin_get_name(void);
 
 /**
+ * sets the shared output mutex for synchronization across plugins
+ * @param mutex pointer to shared mutex
+ */
+void set_shared_output_mutex(pthread_mutex_t* mutex);
+
+/**
+ * locks the shared output mutex
+ */
+void lock_output(void);
+
+/**
+ * unlocks the shared output mutex
+ */
+void unlock_output(void);
+
+/**
  * Initialize the common plugin infrastructure with the specified queue size
  * @param process_function Plugin-specific processing function
  * @param name Plugin name
