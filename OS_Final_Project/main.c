@@ -1,4 +1,5 @@
 #define BUFFER_SIZE 1025
+#define MAX_INT 2147483647
 #define END "<END>"
 
 #include <stdio.h>
@@ -54,6 +55,28 @@ void print_usage() {
            "  echo '<END>' | ./analyzer 20 uppercaser rotator logger\n");
 }
 
+int is_valid_int(const char* str) {
+    if (!str || *str == '\0') {
+        return 0;
+    }
+    
+    while (*str == ' ' || *str == '\t') {
+         str++;
+    }
+
+    if (!isdigit(*str)) {
+        return 0;
+    }
+    
+    while (*str) {
+        if (!isdigit(*str)){
+            return 0;
+        }
+        str++;
+    }
+    return 1;
+}
+
 int validate_args(int argc, char* argv[], int* queue_size) {
     if (argc < 3) {
         fprintf(stderr, "Error: Invalid argument count\n");
@@ -61,13 +84,13 @@ int validate_args(int argc, char* argv[], int* queue_size) {
         return 1;
     }
     
-    *queue_size = atoi(argv[1]);
-    if (*queue_size <= 0) {
+    if(!is_valid_int(argv[1])) {
         fprintf(stderr, "Error: queue_size must be a positive integer.\n");
         print_usage();
         return 1;
     }
     
+    *queue_size = atoi(argv[1]);
     return 0;
 }
 
