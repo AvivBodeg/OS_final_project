@@ -64,12 +64,13 @@ int is_valid_int(const char* str) {
          str++;
     }
 
-    if (!isdigit(*str)) {
+    // find at least one digit
+    if (!(*str >= '0' && *str <= '9')) {
         return 0;
     }
     
     while (*str) {
-        if (!isdigit(*str)){
+        if (!(*str >= '0' && *str <= '9')){
             return 0;
         }
         str++;
