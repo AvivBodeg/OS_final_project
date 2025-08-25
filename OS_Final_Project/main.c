@@ -64,7 +64,7 @@ int is_valid_int(const char* str) {
          str++;
     }
 
-    // find at least one digit
+    // check for empty string
     if (!(*str >= '0' && *str <= '9')) {
         return 0;
     }
@@ -149,8 +149,8 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
         plugins[i].get_name = get_name;
         plugins[i].init = init;
         plugins[i].fini = fini;
-        plugins[i].place_work = place_work;
         plugins[i].attach = attach;
+        plugins[i].place_work = place_work;
         plugins[i].wait_finished = wait_finished;
         plugins[i].name = plugin_name;
         plugins[i].handle = handle;
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // allocate handles for plugins
+    // 1. allocate handles for plugins
     int num_plugins = argc - 2;
     plugin_handle_t* plugins = malloc(num_plugins * sizeof(plugin_handle_t));
     if (!plugins) {
@@ -249,41 +249,41 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // load plugin shared objects
+    // 2. load plugin shared objects
     if (load_plugins(argv, plugins, num_plugins) != 0) {
         free(plugins);
         return 1;
     }
     
-    // initialize plugins
+    // 3. initialize plugins
     if (initialize_plugins(plugins, num_plugins, queue_size) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 2;
     }
     
-    // attach plugins together
+    // 4. attach plugins together
     if (attach_plugins(plugins, num_plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 2;
     }
     
-    // read Input from STDIN
+    // 5. read Input from STDIN
     if (process_input(plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 1;
     }
 
-    // wait for plugins to finish
+    // 6. wait for plugins to finish
     if (wait_for_plugins(plugins, num_plugins) != 0) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
         return 1;
     }
     
-    // cleanup
+    // 7+8. cleanup
     cleanup_plugins(plugins, num_plugins);
     free(plugins);
     printf("Pipeline shutdown complete\n");
