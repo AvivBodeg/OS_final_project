@@ -95,13 +95,14 @@ const char* common_plugin_init(const char* (*process_function)(const char*), con
         return "Plugin already initialized";
     }
 
-    plugin_context.process_function = process_function;
-    plugin_context.name = name;
-    
     plugin_context.queue = malloc(sizeof(consumer_producer_t));
     if (!plugin_context.queue) {
         return "Failed to allocate memory for queue";
     }
+    
+    plugin_context.process_function = process_function;
+    plugin_context.name = name;
+    
     const char* init_result = consumer_producer_init(plugin_context.queue, queue_size);
     if (init_result) {
         free(plugin_context.queue);

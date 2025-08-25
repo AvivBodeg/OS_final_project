@@ -21,8 +21,6 @@ const char* plugin_transform(const char* input) {
             result[i] = input[i-1];
         }
         result[0] = input[len-1];
-    } else {
-        result[0] = input[0];
     }
     result[len] = '\0';
 

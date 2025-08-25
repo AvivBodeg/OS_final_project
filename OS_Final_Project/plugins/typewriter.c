@@ -19,6 +19,7 @@ const char* plugin_transform(const char* input) {
     }
     
     lock_output();
+
     char prefix[] = "[typewriter] ";
     for (int i = 0; prefix[i] != '\0'; i++) {
         printf("%c", prefix[i]);
@@ -32,6 +33,7 @@ const char* plugin_transform(const char* input) {
         usleep(DELAY);
     }
     printf("\n");
+    
     unlock_output();
     
     strcpy(result, input);

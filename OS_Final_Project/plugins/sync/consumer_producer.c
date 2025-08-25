@@ -29,6 +29,7 @@ const char* consumer_producer_init(consumer_producer_t* queue, int capacity) {
         free(queue->items);
         return "Monitor init failed";
     }
+
     return NULL;
 }
 
@@ -71,7 +72,7 @@ const char* consumer_producer_put(consumer_producer_t* queue, const char* item) 
     char* item_copy = strdup(item);
     if (!item_copy) {
         pthread_mutex_unlock(&queue->lock);
-        return "Failed copying item in put";
+        return "failed copying item in cp_put";
     }
 
     queue->items[queue->tail] = item_copy;
@@ -119,6 +120,7 @@ char* consumer_producer_get(consumer_producer_t* queue) {
     }
 
     pthread_mutex_unlock(&queue->lock);
+
     return item;
 }
 
@@ -141,5 +143,6 @@ int consumer_producer_wait_finished(consumer_producer_t* queue) {
     if (!queue) {
         return -1;
     }
+    
     return monitor_wait(&queue->finished_monitor);
 }
