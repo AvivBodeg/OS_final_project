@@ -18,13 +18,13 @@ const char* consumer_producer_init(consumer_producer_t* queue, int capacity) {
     queue->tail = 0;
     queue->finished = 0;
 
-    if (pthread_mutex_init(&queue->lock, NULL) != 0) {
+    if (pthread_mutex_init(&queue->lock, NULL)) {
         free(queue->items);
         return "Mutex init failed";
     }
-    if (monitor_init(&queue->not_full_monitor) != 0 ||
-        monitor_init(&queue->not_empty_monitor) != 0 ||
-        monitor_init(&queue->finished_monitor) != 0) {
+    if (monitor_init(&queue->not_full_monitor) ||
+        monitor_init(&queue->not_empty_monitor) ||
+        monitor_init(&queue->finished_monitor)) {
         pthread_mutex_destroy(&queue->lock);
         free(queue->items);
         return "Monitor init failed";
@@ -57,7 +57,7 @@ const char* consumer_producer_put(consumer_producer_t* queue, const char* item) 
     while (queue->count == queue->capacity && !queue->finished) {
         monitor_reset(&queue->not_full_monitor);
         pthread_mutex_unlock(&queue->lock);
-        if (monitor_wait(&queue->not_full_monitor) != 0) {
+        if (monitor_wait(&queue->not_full_monitor)) {
             return "Failed in wait on not_full_monitor";
         }
 
@@ -98,7 +98,7 @@ char* consumer_producer_get(consumer_producer_t* queue) {
     while (queue->count == 0 && !queue->finished) {
         monitor_reset(&queue->not_empty_monitor);
         pthread_mutex_unlock(&queue->lock);
-        if (monitor_wait(&queue->not_empty_monitor) != 0) {
+        if (monitor_wait(&queue->not_empty_monitor)) {
             return NULL;
         }
 

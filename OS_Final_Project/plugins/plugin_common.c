@@ -93,7 +93,7 @@ const char* common_plugin_init(const char* (*process_function)(const char*), con
         return init_error_msg;
     }
 
-    if (pthread_create(&plugin_context.consumer_thread, NULL, plugin_consumer_thread, &plugin_context) != 0) {
+    if (pthread_create(&plugin_context.consumer_thread, NULL, plugin_consumer_thread, &plugin_context)) {
         consumer_producer_destroy(plugin_context.queue);
         free(plugin_context.queue);
         plugin_context.queue = NULL;
@@ -111,7 +111,7 @@ const char* plugin_fini(void) {
     
     consumer_producer_signal_finished(plugin_context.queue);
     
-    if (pthread_join(plugin_context.consumer_thread, NULL) != 0) {
+    if (pthread_join(plugin_context.consumer_thread, NULL)) {
         return "Failed to join consumer thread";
     }
     
@@ -155,7 +155,7 @@ const char* plugin_wait_finished(void) {
         return "Plugin not initialized";
     }
     
-    if (consumer_producer_wait_finished(plugin_context.queue) != 0) {
+    if (consumer_producer_wait_finished(plugin_context.queue)) {
         return "Failed to wait for queue completion";
     }
     
@@ -168,13 +168,13 @@ void set_shared_output_mutex(pthread_mutex_t* lock) {
 }
 
 void lock_output(void) {
-    if (shared_output_lock != NULL) {
+    if (shared_output_lock) {
         pthread_mutex_lock(shared_output_lock);
     }
 }
 
 void unlock_output(void) {
-    if (shared_output_lock != NULL) {
+    if (shared_output_lock) {
         pthread_mutex_unlock(shared_output_lock);
     }
 }

@@ -5,11 +5,11 @@ int monitor_init(monitor_t* monitor) {
         return -1;
     }
     
-    if (pthread_mutex_init(&monitor->mutex, NULL) != 0) {
+    if (pthread_mutex_init(&monitor->mutex, NULL)) {
         return -1;
     }
     
-    if (pthread_cond_init(&monitor->condition, NULL) != 0) {
+    if (pthread_cond_init(&monitor->condition, NULL)) {
         pthread_mutex_destroy(&monitor->mutex);
         return -1;
     }
@@ -32,7 +32,7 @@ void monitor_signal(monitor_t* monitor) {
         return;
     }
     
-    if (pthread_mutex_lock(&monitor->mutex) != 0) {
+    if (pthread_mutex_lock(&monitor->mutex)) {
         return;
     }
 
@@ -46,7 +46,7 @@ void monitor_reset(monitor_t* monitor) {
         return;
     }
 
-    if (pthread_mutex_lock(&monitor->mutex) != 0) {
+    if (pthread_mutex_lock(&monitor->mutex)) {
         return;
     }
 
@@ -59,12 +59,12 @@ int monitor_wait(monitor_t* monitor) {
         return -1;
     }
 
-    if (pthread_mutex_lock(&monitor->mutex) != 0) {
+    if (pthread_mutex_lock(&monitor->mutex)) {
         return -1;
     }
 
     while (!monitor->signaled) {
-        if (pthread_cond_wait(&monitor->condition, &monitor->mutex) != 0) {
+        if (pthread_cond_wait(&monitor->condition, &monitor->mutex)) {
             pthread_mutex_unlock(&monitor->mutex);
             return -1;
         }
