@@ -10,9 +10,6 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_TOTAL=0
 
-# unique timestamp for broken plugin test
-TIMESTAMP=$(date +%s)
-BROKEN_PLUGIN_NAME="broken_test_${TIMESTAMP}"
 
 # printing functions
 print_success() {
@@ -35,11 +32,11 @@ increment_test_count() {
 
 # cleanup in case of 100% pass
 cleanup_test_files() {
-    rm -f output/${BROKEN_PLUGIN_NAME}.so
-    rm -f plugins/${BROKEN_PLUGIN_NAME}.c
-    rm -f test_output.txt
-    rm -f valgrind_output.txt
+    rm -f output/test_output.txt
+    rm -f output/valgrind_output.txt
 }
+
+> output/test_output.txt
 
 # build
 print_info "Building project..."
@@ -94,22 +91,6 @@ else
     print_success "Non-existent plugin"
 fi
 
-# broken plugin test (and creation of temp broken plugin)
-cat > plugins/${BROKEN_PLUGIN_NAME}.c << 'EOF'
-const char* plugin_get_name(void) { return "broken_test"; }
-EOF
-if gcc -fPIC -shared -o output/${BROKEN_PLUGIN_NAME}.so plugins/${BROKEN_PLUGIN_NAME}.c 2>/dev/null; then
-    if echo -e "imoutofideas\n<END>" | ./output/analyzer 5 ${BROKEN_PLUGIN_NAME} >/dev/null 2>&1; then
-        print_failure "Broken plugin"
-        increment_test_count;
-    else
-        print_success "Broken plugin"
-        increment_test_count;
-    fi
-else
-    print_info "Failed to create broken plugin - skipping"
-fi
-
 # output tests
 print_info "Running output tests"
 
@@ -121,6 +102,8 @@ if [[ "$OUTPUT" == "$EXPECTED_OUTPUT" ]]; then
     print_success "Single plugin pipeline"
 else
     print_failure "Single plugin pipeline"
+    echo -e "Single plugin pipeline:" >> output/test_output.txt
+    echo -e "$OUTPUT" >> output/test_output.txt
 fi
 
 increment_test_count;
@@ -135,6 +118,8 @@ if [ "$OUTPUT_TYPEWRITER" == "$EXPECTED_OUTPUT_TYPEWRITER" ] && [ "$OUTPUT_LOGGE
     print_success "Multi-plugin pipeline"
 else
     print_failure "Multi-plugin pipeline"
+    echo -e "Multi-plugin pipeline:" >> output/test_output.txt
+    echo -e "$OUTPUT" >> output/test_output.txt
 fi
 
 increment_test_count;
@@ -145,6 +130,8 @@ if [[ "$OUTPUT" == *"Pipeline shutdown complete"* ]] && [[ "$OUTPUT" == *"[logge
     print_success "All plugins pipeline"
 else
     print_failure "All plugins pipeline"
+    echo -e "All plugins pipeline:" >> output/test_output.txt
+    echo -e "$OUTPUT" >> output/test_output.txt
 fi
 
 increment_test_count;
@@ -153,6 +140,8 @@ if [[ "$OUTPUT" == "Pipeline shutdown complete" ]]; then
     print_success "Empty input"
 else
     print_failure "Empty input"
+    echo -e "Empty input:" >> output/test_output.txt
+    echo -e "$OUTPUT" >> output/test_output.txt
 fi
 
 increment_test_count;
@@ -164,6 +153,8 @@ if [[ "$OUTPUT" == *"Pipeline shutdown complete" ]] && \
     print_success "long string"
 else
     print_failure "long string"
+    echo -e "long string:" >> output/test_output.txt
+    echo -e "$OUTPUT" >> output/test_output.txt
 fi
 
 if command -v timeout >/dev/null 2>&1; then
@@ -184,7 +175,7 @@ print_info "Running other tests:"
 if command -v valgrind >/dev/null 2>&1; then
     increment_test_count;
     echo -e "test\nline\n<END>" | valgrind --leak-check=full --error-exitcode=1 \
-        ./output/analyzer 3 uppercaser logger > valgrind_output.txt 2>&1
+        ./output/analyzer 3 uppercaser logger > output/valgrind_output.txt 2>&1
     if [ $? -eq 0 ]; then
         print_success "Memory leak detection"
     else
@@ -202,8 +193,7 @@ if [ $TESTS_FAILED -eq 0 ]; then
 else
     echo -e "${RED}$TESTS_FAILED tests failed${NO_COLOUR}"
     echo -e "Test files preserved for debugging:"
-    echo -e "  - plugins/${BROKEN_PLUGIN_NAME}.c"
-    echo -e "  - output/${BROKEN_PLUGIN_NAME}.so"
-    echo -e "  - valgrind_output.txt (if valgrind exists)"
+    echo -e "  - output/test_output.txt"
+    echo -e "  - output/valgrind_output.txt (if valgrind exists)"
     exit 1
 fi

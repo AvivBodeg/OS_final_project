@@ -31,7 +31,7 @@ typedef struct {
 } plugin_handle_t;
 
 // global output synchronization
-static pthread_mutex_t output_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void print_usage() {
     printf("Usage: ./analyzer <queue_size> <plugin1> <plugin2> ... <pluginN>\n"
@@ -142,7 +142,7 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
         
         // set shared output mutex (if supported)
         if (set_mutex) {
-            set_mutex(&output_mutex);
+            set_mutex(&output_lock);
         }
         
         // store current plugin info
