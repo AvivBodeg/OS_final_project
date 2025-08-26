@@ -12,12 +12,12 @@ TESTS_TOTAL=0
 
 
 # printing functions
-print_success() {
+print_pass() {
     echo -e "$1: ${GREEN}PASS${NO_COLOUR}"
     ((TESTS_PASSED++))
 }
 
-print_failure() {
+print_fail() {
     echo -e "$1: ${RED}FAIL${NO_COLOUR}"
     ((TESTS_FAILED++))
 }
@@ -36,8 +36,6 @@ cleanup_test_files() {
     rm -f output/valgrind_output.txt
 }
 
-> output/test_output.txt
-
 # build
 print_info "Building project..."
 if ! ./build.sh > /dev/null 2>&1; then
@@ -46,49 +44,51 @@ if ! ./build.sh > /dev/null 2>&1; then
 fi
 print_info "Build succeeded"
 
+> output/test_output.txt
+
 # input validation tests
 print_info "Running validation tests"
 
 increment_test_count;
 if echo -e "test\n<END>" | ./output/analyzer aviv:')' logger >/dev/null 2>&1; then
-    print_failure "Non-numeric queue size"
+    print_fail "Non-numeric queue size"
 else
-    print_success "Non-numeric queue size"
+    print_pass "Non-numeric queue size"
 fi
 
 increment_test_count;
 if echo -e "wow\n<END>" | ./output/analyzer 0 logger >/dev/null 2>&1; then
-    print_failure "Zero queue size"
+    print_fail "Zero queue size"
 else
-    print_success "Zero queue size"
+    print_pass "Zero queue size"
 fi
 
 increment_test_count;
 if echo -e "welp\n<END>" | ./output/analyzer -5 logger >/dev/null 2>&1; then
-    print_failure "Negative queue size"
+    print_fail "Negative queue size"
 else
-    print_success "Negative queue size"
+    print_pass "Negative queue size"
 fi
 
 increment_test_count;
 if echo -e "thisisatetststststs\n<END>" | ./output/analyzer 3.1415 logger >/dev/null 2>&1; then
-    print_failure "Non-integer queue size"
+    print_fail "Non-integer queue size"
 else
-    print_success "Non-integer queue size"
+    print_pass "Non-integer queue size"
 fi
 
 increment_test_count;
 if ./output/analyzer 5 >/dev/null 2>&1; then
-    print_failure "Empty plugin list"
+    print_fail "Empty plugin list"
 else
-    print_success "Empty plugin list"
+    print_pass "Empty plugin list"
 fi
 
 increment_test_count;
 if echo -e "theENDisNear\n<END>" | ./output/analyzer 5 nonexistent_plugin >/dev/null 2>&1; then
-    print_failure "Non-existent plugin"
+    print_fail "Non-existent plugin"
 else
-    print_success "Non-existent plugin"
+    print_pass "Non-existent plugin"
 fi
 
 # output tests
@@ -99,9 +99,9 @@ EXPECTED_OUTPUT="[logger] hello
 [logger] hell"
 OUTPUT=$(echo -e "hello\nhell\n<END>" | ./output/analyzer 5 logger | grep "\[logger\]" 2>/dev/null)
 if [[ "$OUTPUT" == "$EXPECTED_OUTPUT" ]]; then
-    print_success "Single plugin pipeline"
+    print_pass "Single plugin pipeline"
 else
-    print_failure "Single plugin pipeline"
+    print_fail "Single plugin pipeline"
     echo -e "Single plugin pipeline:" >> output/test_output.txt
     echo -e "$OUTPUT" >> output/test_output.txt
 fi
@@ -115,9 +115,9 @@ OUTPUT=$(echo -e "hello\nthere\n<END>" | ./output/analyzer 10 typewriter upperca
 OUTPUT_LOGGER=$(echo "$OUTPUT" | grep "\[logger\]")
 OUTPUT_TYPEWRITER=$(echo "$OUTPUT" | grep "\[typewriter\]")
 if [ "$OUTPUT_TYPEWRITER" == "$EXPECTED_OUTPUT_TYPEWRITER" ] && [ "$OUTPUT_LOGGER" == "$EXPECTED_OUTPUT_LOGGER" ]; then
-    print_success "Multi-plugin pipeline"
+    print_pass "Multi-plugin pipeline"
 else
-    print_failure "Multi-plugin pipeline"
+    print_fail "Multi-plugin pipeline"
     echo -e "Multi-plugin pipeline:" >> output/test_output.txt
     echo -e "$OUTPUT" >> output/test_output.txt
 fi
@@ -127,9 +127,9 @@ EXPECTED_OUTPUT="[typewriter] SETT
 [logger] S E T T"
 OUTPUT=$(echo -e "test\n<END>" | ./output/analyzer 1 uppercaser rotator flipper typewriter expander logger 2>&1)
 if [[ "$OUTPUT" == *"Pipeline shutdown complete"* ]] && [[ "$OUTPUT" == *"[logger]"* ]] && [[ "$OUTPUT" == *"[typewriter]"* ]]; then
-    print_success "All plugins pipeline"
+    print_pass "All plugins pipeline"
 else
-    print_failure "All plugins pipeline"
+    print_fail "All plugins pipeline"
     echo -e "All plugins pipeline:" >> output/test_output.txt
     echo -e "$OUTPUT" >> output/test_output.txt
 fi
@@ -137,9 +137,9 @@ fi
 increment_test_count;
 OUTPUT=$(echo -e "<END>" | ./output/analyzer 2 logger 2>/dev/null)
 if [[ "$OUTPUT" == "Pipeline shutdown complete" ]]; then
-    print_success "Empty input"
+    print_pass "Empty input"
 else
-    print_failure "Empty input"
+    print_fail "Empty input"
     echo -e "Empty input:" >> output/test_output.txt
     echo -e "$OUTPUT" >> output/test_output.txt
 fi
@@ -150,9 +150,9 @@ OUTPUT=$(echo -e "$LONG_STRING\n<END>" | ./output/analyzer 7 uppercaser logger 2
 LOGGER_OUTPUT=$(echo "$OUTPUT" | grep "\[logger\]")
 if [[ "$OUTPUT" == *"Pipeline shutdown complete" ]] && \
    [[ "$LOGGER_OUTPUT" == "[logger] $(printf 'A%.0s' {1..1000})" ]]; then
-    print_success "long string"
+    print_pass "long string"
 else
-    print_failure "long string"
+    print_fail "long string"
     echo -e "long string:" >> output/test_output.txt
     echo -e "$OUTPUT" >> output/test_output.txt
 fi
@@ -161,9 +161,9 @@ if command -v timeout >/dev/null 2>&1; then
     increment_test_count;
     print_info "Testing timeout for EOF input, expected wait time ~5s"
     if timeout 5s bash -c 'echo "hello" | ./output/analyzer 6 logger' >/dev/null 2>&1; then
-        print_failure "EOF input"
+        print_fail "EOF input"
     else
-        print_success "EOF input"
+        print_pass "EOF input"
     fi
 else
     print_info "Timeout command not available - skipping"
@@ -177,9 +177,9 @@ if command -v valgrind >/dev/null 2>&1; then
     echo -e "test\nline\n<END>" | valgrind --leak-check=full --error-exitcode=1 \
         ./output/analyzer 3 uppercaser logger > output/valgrind_output.txt 2>&1
     if [ $? -eq 0 ]; then
-        print_success "Memory leak detection"
+        print_pass "Memory leak detection"
     else
-        print_failure "Memory leaks detected"
+        print_fail "Memory leaks detected"
     fi
 else
     print_info "Valgrind not available - skipping"

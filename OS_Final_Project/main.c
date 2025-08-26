@@ -116,7 +116,6 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
             return 1;
         }
         
-        // clear existing error
         dlerror();
         
         plugin_get_name_func_t get_name = (plugin_get_name_func_t)dlsym(handle, "plugin_get_name");
@@ -140,10 +139,7 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
             return 1;
         }
         
-        // set shared output mutex (if supported)
-        if (set_mutex) {
-            set_mutex(&output_lock);
-        }
+        set_mutex(&output_lock);
         
         // store current plugin info
         plugins[i].name = plugin_name;
@@ -201,7 +197,7 @@ int process_input(plugin_handle_t* plugins) {
                 return 1;
             }
 
-            if (!strcmp(buffer, END)) {
+            if (strcmp(buffer, END) == 0) {
                 break;
             }
         } else {
