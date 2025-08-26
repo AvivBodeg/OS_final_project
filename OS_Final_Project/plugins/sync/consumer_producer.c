@@ -66,7 +66,7 @@ const char* consumer_producer_put(consumer_producer_t* queue, const char* item) 
 
     if (queue->finished) {
         pthread_mutex_unlock(&queue->lock);
-        return "Tried to put new item to a finished queue";
+        return "attempted to put new item to a finished queue";
     }
 
     char* item_copy = strdup(item);

@@ -33,15 +33,15 @@ void* plugin_consumer_thread(void* arg) {
         }
 
         // process work and send to next plugin
-        const char* processed_result = context->process_function(work_item);
-        if (processed_result) {
+        const char* result = context->process_function(work_item);
+        if (result) {
             if (context->next_place_work) {
-                const char* forward_result = context->next_place_work(processed_result);
-                if (forward_result) {
+                const char* error_msg = context->next_place_work(result);
+                if (error_msg) {
                     log_error(context, "Failed to forward string to next plugin");
                 }
             }
-            free((void*)processed_result);
+            free((void*)result);
         } else {
             log_error(context, "Plugin transformation returned NULL");
         }
@@ -71,7 +71,7 @@ const char* common_plugin_init(const char* (*process_function)(const char*), con
     if (!process_function) {
         return "Invalid process_function";
     }
-    if (!name || queue_size <= 0) {
+    if ( queue_size <= 0 || !name) {
         return "Invalid plugin parameters";
     }
     if (plugin_context.initialized) {
@@ -86,11 +86,11 @@ const char* common_plugin_init(const char* (*process_function)(const char*), con
     plugin_context.process_function = process_function;
     plugin_context.name = name;
     
-    const char* init_result = consumer_producer_init(plugin_context.queue, queue_size);
-    if (init_result) {
+    const char* init_error_msg = consumer_producer_init(plugin_context.queue, queue_size);
+    if (init_error_msg) {
         free(plugin_context.queue);
         plugin_context.queue = NULL;
-        return init_result;
+        return init_error_msg;
     }
 
     if (pthread_create(&plugin_context.consumer_thread, NULL, plugin_consumer_thread, &plugin_context) != 0) {
@@ -124,6 +124,7 @@ const char* plugin_fini(void) {
     plugin_context.name = NULL;
     plugin_context.process_function = NULL;
     plugin_context.next_place_work = NULL;
+
     plugin_context.initialized = 0;
     plugin_context.finished = 0;
     
@@ -139,7 +140,7 @@ const char* plugin_place_work(const char* str) {
         return "Plugin not initialized";
     }
     if (!str) {
-        return "Invalid input string";
+        return "Cannot process NULL";
     }
 
     return consumer_producer_put(plugin_context.queue, str); //NULL if succeeded

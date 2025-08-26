@@ -31,7 +31,7 @@ typedef struct {
 } plugin_handle_t;
 
 // global output synchronization
-static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t output_lock;
 
 void print_usage() {
     printf("Usage: ./analyzer <queue_size> <plugin1> <plugin2> ... <pluginN>\n"
@@ -129,7 +129,7 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
         
         // handle dlsym (exporting) errors
         char* error = dlerror();
-        if (error != NULL || !get_name || !init || !fini || !place_work || !attach || !wait_finished) {
+        if (error || !get_name || !init || !fini || !place_work || !attach || !wait_finished) {
             fprintf(stderr, "Error: Plugin [%s] missing required functions: %s\n", plugin_name, error ? error : "Unknown symbol error");
             print_usage();
             dlclose(handle);
@@ -146,13 +146,13 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
         }
         
         // store current plugin info
+        plugins[i].name = plugin_name;
         plugins[i].get_name = get_name;
         plugins[i].init = init;
-        plugins[i].fini = fini;
         plugins[i].attach = attach;
         plugins[i].place_work = place_work;
+        plugins[i].fini = fini;
         plugins[i].wait_finished = wait_finished;
-        plugins[i].name = plugin_name;
         plugins[i].handle = handle;
     }
     
@@ -161,11 +161,11 @@ int load_plugins(char* argv[], plugin_handle_t* plugins, int num_plugins) {
 
 int initialize_plugins(plugin_handle_t* plugins, int num_plugins, int queue_size) {
     for (int i = 0; i < num_plugins; i++) {
-        const char* error = plugins[i].init(queue_size);
-        if (error != NULL) {
-            fprintf(stderr, "Error: Plugin [%s] failed to initialize: %s\n", plugins[i].name, error);
+        const char* error_msg = plugins[i].init(queue_size);
+        if (error_msg) {
+            fprintf(stderr, "Error: Plugin [%s] failed to initialize: %s\n", plugins[i].name, error_msg);
 
-            // clean (finalize) previous plugins
+            // clean= finalize previous plugins
             for (int j = 0; j < i; j++) {
                 plugins[j].fini();
             }
@@ -182,20 +182,12 @@ int attach_plugins(plugin_handle_t* plugins, int num_plugins) {
     return 0;
 }
 
-void cleanup_plugins(plugin_handle_t* plugins, int num_plugins) {
-    for (int i = 0; i < num_plugins; i++) {
-        if (plugins[i].handle) {
-            plugins[i].fini();
-            dlclose(plugins[i].handle);
-        }
-    }
-}
 
 int process_input(plugin_handle_t* plugins) {
     char buffer[BUFFER_SIZE];
     
     while (1) {
-        if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+        if (fgets(buffer, sizeof(buffer), stdin)) {
             // replace trailing newline with null
             int len = strlen(buffer);
             if (len > 0 && buffer[len - 1] == '\n') {
@@ -203,13 +195,13 @@ int process_input(plugin_handle_t* plugins) {
             }
             
             // sends item to first plugin
-            const char* error = plugins[0].place_work(buffer);
-            if (error != NULL) {
-                fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error);
+            const char* error_msg = plugins[0].place_work(buffer);
+            if (error_msg) {
+                fprintf(stderr, "Error: Failed to place work in first plugin: %s\n", error_msg);
                 return 1;
             }
 
-            if (strcmp(buffer, END) == 0) {
+            if (!strcmp(buffer, END)) {
                 break;
             }
         } else {
@@ -220,11 +212,11 @@ int process_input(plugin_handle_t* plugins) {
     return 0;
 }
 
-int wait_for_plugins(plugin_handle_t* plugins, int num_plugins) {
+int wait_for_plugins_fini(plugin_handle_t* plugins, int num_plugins) {
     for (int i = 0; i < num_plugins; i++) {
-        const char* error = plugins[i].wait_finished();
-        if (error != NULL) {
-            fprintf(stderr, "Error: Plugin [%s] failed to finish gracefully: %s\n", plugins[i].name, error);
+        const char* error_msg = plugins[i].wait_finished();
+        if (error_msg) {
+            fprintf(stderr, "Error: Plugin [%s] failed to finish gracefully: %s\n", plugins[i].name, error_msg);
             return 1;
         }
     }
@@ -232,12 +224,19 @@ int wait_for_plugins(plugin_handle_t* plugins, int num_plugins) {
     return 0;
 }
 
-
+void cleanup_plugins(plugin_handle_t* plugins, int num_plugins) {
+    for (int i = 0; i < num_plugins; i++) {
+        if (plugins[i].handle) {
+            plugins[i].fini();
+            dlclose(plugins[i].handle);
+        }
+    }
+}
 
 int main(int argc, char* argv[]) {
     // parse and validate args:
     int queue_size;
-    if (validate_args(argc, argv, &queue_size) != 0) {
+    if (validate_args(argc, argv, &queue_size)) {
         return 1;
     }
 
@@ -249,43 +248,56 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // 2. load plugin shared objects
-    if (load_plugins(argv, plugins, num_plugins) != 0) {
+    // output mutex for typewritter and logger
+    if (pthread_mutex_init(&output_lock, NULL)) {
         free(plugins);
+        fprintf(stderr, "Error: Failed to initialize output mutex\n");
+        return 1;
+    }
+
+    // 2. load plugin shared objects
+    if (load_plugins(argv, plugins, num_plugins)) {
+        free(plugins);
+        pthread_mutex_destroy(&output_lock);
         return 1;
     }
     
     // 3. initialize plugins
-    if (initialize_plugins(plugins, num_plugins, queue_size) != 0) {
+    if (initialize_plugins(plugins, num_plugins, queue_size)) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
+        pthread_mutex_destroy(&output_lock);
         return 2;
     }
     
     // 4. attach plugins together
-    if (attach_plugins(plugins, num_plugins) != 0) {
+    if (attach_plugins(plugins, num_plugins)) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
+        pthread_mutex_destroy(&output_lock);
         return 2;
     }
     
     // 5. read Input from STDIN
-    if (process_input(plugins) != 0) {
+    if (process_input(plugins)) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
+        pthread_mutex_destroy(&output_lock);
         return 1;
     }
 
     // 6. wait for plugins to finish
-    if (wait_for_plugins(plugins, num_plugins) != 0) {
+    if (wait_for_plugins_fini(plugins, num_plugins)) {
         cleanup_plugins(plugins, num_plugins);
         free(plugins);
+        pthread_mutex_destroy(&output_lock);
         return 1;
     }
     
     // 7+8. cleanup
     cleanup_plugins(plugins, num_plugins);
     free(plugins);
+    pthread_mutex_destroy(&output_lock);
     printf("Pipeline shutdown complete\n");
     return 0;
 }
